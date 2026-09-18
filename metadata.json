@@ -1,0 +1,6 @@
+{
+  "name": "دعوة زفاف محمد و دنيا",
+  "description": "موقع دعوة زفاف إلكترونية فاخرة وتفاعلية لحفل زفاف محمد و دنيا",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

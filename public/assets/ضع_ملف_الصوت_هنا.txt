@@ -1,0 +1,7 @@
+ضع ملف الصوت الخاص بك هنا باسم:
+wedding_song.mp3
+
+ويمكنك وضعه بأي من هذه الصيغ:
+- wedding_song.mp3
+- wedding_song.wav
+- wedding_song.m4a

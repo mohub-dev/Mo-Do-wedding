@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    direction: rtl;
+    font-family: 'El Messiri', 'Almarai', sans-serif;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  body {
+    background-color: #F8F5F2;
+    color: #2D141B;
+    font-family: 'El Messiri', 'Almarai', sans-serif;
+    overflow-x: hidden;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+}
+
+/* Hide side scrollbar completely across Chrome, Safari, Edge, and Opera */
+::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+* {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+/* Calligraphy & Typography Classes */
+.font-amiri {
+  font-family: 'Amiri', 'Noto Naskh Arabic', serif;
+}
+
+.font-messiri {
+  font-family: 'El Messiri', 'Almarai', sans-serif;
+}
+
+.font-ruqaa {
+  font-family: 'El Messiri', 'Almarai', sans-serif;
+}
+
+.font-naskh {
+  font-family: 'Amiri', 'Noto Naskh Arabic', serif;
+}
+
+.font-serif-ar {
+  font-family: 'El Messiri', 'Almarai', sans-serif;
+}
+
+.font-sans-ar {
+  font-family: 'El Messiri', 'Almarai', sans-serif;
+}
+
+.font-editorial {
+  font-family: 'El Messiri', 'Almarai', sans-serif;
+}
+
+/* Subtle Cotton & Travertine Textures */
+.bg-cream-paper {
+  background-color: #FAF8F5;
+  background-image: 
+    radial-gradient(#421822 0.65px, transparent 0.65px),
+    radial-gradient(#C4AA7E 0.5px, #FAF8F5 0.5px);
+  background-size: 28px 28px, 14px 14px;
+}
+
+.bg-burgundy-paper {
+  background-color: #832E41;
+  background-image: 
+    radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+    radial-gradient(rgba(0, 0, 0, 0.12) 1px, transparent 1px);
+  background-size: 16px 16px, 24px 24px;
+}
+
+.bg-envelope-grain {
+  background-image: radial-gradient(rgba(220, 195, 140, 0.15) 1px, transparent 0);
+  background-size: 12px 12px;
+}
+
+/* Gold Shimmer & Borders */
+.gold-gradient-text {
+  background: linear-gradient(135deg, #B89656 0%, #D4B272 50%, #9C7C3E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gold-gradient-bg {
+  background: linear-gradient(135deg, #C5A467 0%, #E3C588 50%, #AC884B 100%);
+}
+
+.gold-border-fillet {
+  border: 1px solid #D6BC87;
+  outline: 1px solid #EFE4CC;
+  outline-offset: -5px;
+}
+
+/* Envelope 3D Transform Utilities */
+.perspective-1000 {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
