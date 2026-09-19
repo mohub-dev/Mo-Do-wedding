@@ -94,20 +94,24 @@ export const LiveEventEditor: React.FC<LiveEventEditorProps> = ({ onPreviewInvit
     }));
   };
 
-  // Submit and save to global context & localStorage
-  const handleSave = (e: React.FormEvent) => {
+  // Submit and save to global context & D1
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateInvitationData(formData);
-    setSaveSuccessAlert('تم حفظ وتطبيق التعديلات بنجاح! تظهر الآن مباشرة في كامل بطاقة الدعوة والمظروف ✨');
+    const ok = await updateInvitationData(formData);
+    if (ok) {
+      setSaveSuccessAlert('تم حفظ وتطبيق التعديلات بنجاح في قاعدة البيانات D1! تظهر الآن لجميع الزوار فورًا ✨');
+    } else {
+      setSaveSuccessAlert('تعذر حفظ التعديلات على الخادم. يرجى التحقق من صلاحية الجلسة.');
+    }
     setTimeout(() => {
       setSaveSuccessAlert(null);
     }, 4500);
   };
 
   // Reset to original defaults
-  const handleReset = () => {
+  const handleReset = async () => {
     if (window.confirm('هل أنت متأكد من استعادة كافة بيانات الحفل الأصلية والافتراضية؟')) {
-      resetInvitationData();
+      await resetInvitationData();
       setFormData(INVITATION_DATA);
       setSaveSuccessAlert('تمت استعادة البيانات الافتراضية بنجاح 🔄');
       setTimeout(() => {

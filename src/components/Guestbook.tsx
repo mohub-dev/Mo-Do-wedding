@@ -21,7 +21,7 @@ export const Guestbook: React.FC<GuestbookProps> = ({ initialAuthor = '', groom,
   const {
     guestbookMessages,
     saveGuestbookMessage,
-    setGuestbookMessages,
+    likeGuestbookMessage,
   } = useWeddingData();
 
   const [author, setAuthor] = useState<string>(initialAuthor);
@@ -29,6 +29,7 @@ export const Guestbook: React.FC<GuestbookProps> = ({ initialAuthor = '', groom,
   const [content, setContent] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialAuthor) {
@@ -36,11 +37,13 @@ export const Guestbook: React.FC<GuestbookProps> = ({ initialAuthor = '', groom,
     }
   }, [initialAuthor]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!author.trim() || !content.trim()) return;
 
     setIsSubmitting(true);
+    setErrorMessage(null);
+
     const newMsg: GuestbookMessage = {
       id: Date.now().toString(),
       author: author.trim(),
@@ -50,29 +53,26 @@ export const Guestbook: React.FC<GuestbookProps> = ({ initialAuthor = '', groom,
       likes: 1,
     };
 
-    saveGuestbookMessage(newMsg);
+    const success = await saveGuestbookMessage(newMsg);
     setIsSubmitting(false);
-    setContent('');
 
-    confetti({
-      particleCount: 70,
-      spread: 60,
-      origin: { y: 0.8 },
-      colors: ['#D4AF37', '#832E41', '#FAF8F5', '#A84358'],
-    });
+    if (success) {
+      setContent('');
+      confetti({
+        particleCount: 70,
+        spread: 60,
+        origin: { y: 0.8 },
+        colors: ['#D4AF37', '#832E41', '#FAF8F5', '#A84358'],
+      });
+    } else {
+      setErrorMessage('تعذر إرسال التهنئة إلى الخادم. يرجى التأكد من اتصالك بالإنترنت والمحاولة مجددًا.');
+    }
   };
 
-  const handleLike = (id: string) => {
+  const handleLike = async (id: string) => {
     if (likedMap[id]) return;
     setLikedMap(prev => ({ ...prev, [id]: true }));
-
-    const updated = guestbookMessages.map(m => m.id === id ? { ...m, likes: m.likes + 1 } : m);
-    setGuestbookMessages(updated);
-    try {
-      localStorage.setItem('wedding_guestbook_messages', JSON.stringify(updated));
-    } catch (err) {
-      console.warn(err);
-    }
+    await likeGuestbookMessage(id);
   };
 
   return (
@@ -97,6 +97,11 @@ export const Guestbook: React.FC<GuestbookProps> = ({ initialAuthor = '', groom,
 
         {/* Input Form */}
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {errorMessage && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm font-sans-ar text-center">
+              {errorMessage}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-sans-ar text-xs font-medium text-[#5E2330] mb-1">

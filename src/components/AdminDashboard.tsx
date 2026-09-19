@@ -43,7 +43,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
     deleteRSVP,
     deleteGuestbookMessage,
     exportRSVPsCSV,
+    isAdminAuthenticated,
+    adminLogin,
+    adminLogout,
   } = useWeddingData();
+
+  // Admin Login State
+  const [adminPassword, setAdminPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminPassword) return;
+    setIsLoggingIn(true);
+    setLoginError(null);
+    const result = await adminLogin(adminPassword);
+    setIsLoggingIn(false);
+    if (!result.success) {
+      setLoginError(result.error || 'كلمة المرور غير صحيحة');
+    }
+  };
 
   // Active Main Admin Section Tab
   const [activeTab, setActiveTab] = useState<'editor' | 'rsvps' | 'links' | 'guestbook'>('editor');
@@ -96,7 +116,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
   };
 
   // Add Manual Record Handler
-  const handleAddManualRSVP = (e: React.FormEvent) => {
+  const handleAddManualRSVP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!manualName.trim()) return;
 
@@ -114,12 +134,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
       }),
     };
 
-    saveRSVP(newRecord);
-    setManualName('');
-    setManualNote('');
-    setManualCompanions(1);
-    setShowAddModal(false);
-    setNotificationMsg(`تمت إضافة ${newRecord.guestName} بنجاح إلى قاعدة البيانات ✨`);
+    const ok = await saveRSVP(newRecord);
+    if (ok) {
+      setManualName('');
+      setManualNote('');
+      setManualCompanions(1);
+      setShowAddModal(false);
+      setNotificationMsg(`تمت إضافة ${newRecord.guestName} بنجاح إلى قاعدة البيانات ✨`);
+    } else {
+      setNotificationMsg('تعذر حفظ السجل على الخادم. يرجى المحاولة لاحقًا.');
+    }
     setTimeout(() => setNotificationMsg(null), 4000);
   };
 
@@ -144,6 +168,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
       statusFilter === 'all' ? true : r.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  if (!isAdminAuthenticated) {
+    return (
+      <main
+        id="admin-login-screen"
+        dir="rtl"
+        className="min-h-screen w-full bg-[#F8F5F2] text-[#2B1117] font-sans-ar flex items-center justify-center p-4 selection:bg-[#832E41] selection:text-white"
+      >
+        <div className="relative w-full max-w-md bg-[#FCFAF7] rounded-3xl p-6 sm:p-8 border-2 border-[#DFCBA0] shadow-[0_16px_48px_rgba(45,11,20,0.08)] text-center overflow-hidden">
+          <div className="w-14 h-14 rounded-2xl bg-[#832E41] text-[#FAF8F5] flex items-center justify-center mx-auto mb-4 shadow-md">
+            <Lock className="w-7 h-7 text-[#DEC496]" />
+          </div>
+
+          <h2 className="font-sans-ar text-2xl font-bold text-[#2B1117] mb-1">
+            تسجيل دخول المشرف
+          </h2>
+          <p className="font-sans-ar text-xs sm:text-sm text-[#7E3243] mb-6">
+            لوحة الإدارة محمية برمز سري. أدخل كلمة المرور للمتابعة.
+          </p>
+
+          <form onSubmit={handleLoginSubmit} className="space-y-4 text-right">
+            {loginError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm font-sans-ar text-center">
+                {loginError}
+              </div>
+            )}
+
+            <div>
+              <label className="block font-sans-ar text-xs font-semibold text-[#5E2330] mb-1.5">
+                كلمة المرور
+              </label>
+              <input
+                type="password"
+                required
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full px-4 py-3 rounded-xl bg-white border border-[#DDD5C5] text-[#2B1117] placeholder:text-[#B59199] focus:outline-none focus:ring-2 focus:ring-[#832E41]/40 font-sans-ar text-sm"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!adminPassword || isLoggingIn}
+              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#832E41] hover:bg-[#6E2233] text-white font-sans-ar text-sm font-bold shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isLoggingIn ? <span>جاري التحقق...</span> : <span>دخول لوحة الإدارة</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={onExitAdmin}
+              className="w-full text-center text-xs font-sans-ar text-[#832E41] hover:underline pt-2 cursor-pointer"
+            >
+              العودة إلى بطاقة الدعوة
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -192,6 +277,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
             >
               <span>معاينة الدعوة</span>
               <ArrowRight className="w-4 h-4" />
+            </button>
+
+            {/* Logout */}
+            <button
+              type="button"
+              onClick={adminLogout}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs sm:text-sm font-medium transition-all shadow-xs cursor-pointer"
+              title="تسجيل الخروج من لوحة الإدارة"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>خروج</span>
             </button>
           </div>
         </header>

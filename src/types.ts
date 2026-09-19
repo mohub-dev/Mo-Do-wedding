@@ -107,3 +107,12 @@ export interface GuestbookMessage {
   createdAt: string;
   likes: number;
 }
+
+export interface BatchGuest {
+  id: string;
+  name: string;
+  phone?: string;
+  sent: boolean;
+  sentAt?: string;
+  notes?: string;
+}
