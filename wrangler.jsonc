@@ -12,9 +12,7 @@
     {
       "binding": "DB",
       "database_name": "mo-do-wedding-db",
-      // NOTE: "mo-do-wedding-db" is used for local Miniflare simulation.
-      // Before remote deployment, replace database_id with the real D1 UUID generated via `npx wrangler d1 create mo-do-wedding-db`
-      "database_id": "mo-do-wedding-db"
+      "database_id": "f68e6ff6-8a49-4968-b837-2bc6de85f08a"
     }
   ]
 }
