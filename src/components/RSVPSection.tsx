@@ -19,6 +19,8 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ data, initialGuestName
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   useEffect(() => {
     if (initialGuestName) {
       setGuestName(initialGuestName);
@@ -34,11 +36,12 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ data, initialGuestName
     });
   };
 
-  const handleSave = async (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent): Promise<boolean> => {
     if (e) e.preventDefault();
-    if (!guestName.trim()) return;
+    if (!guestName.trim()) return false;
 
     setIsSubmitting(true);
+    setErrorMessage(null);
 
     const newRecord: RSVPRecord = {
       id: Date.now().toString(),
@@ -54,18 +57,26 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ data, initialGuestName
       }),
     };
 
-    saveRSVP(newRecord);
+    const success = await saveRSVP(newRecord);
     setIsSubmitting(false);
-    setIsSubmitted(true);
-    if (status === 'attending') {
-      triggerCelebration();
+
+    if (success) {
+      setIsSubmitted(true);
+      if (status === 'attending') {
+        triggerCelebration();
+      }
+      return true;
+    } else {
+      setErrorMessage('عذرًا، تعذر تسجيل الرد على الخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مجددًا.');
+      return false;
     }
   };
 
   const handleSendWhatsApp = async () => {
     if (!guestName.trim()) return;
 
-    await handleSave();
+    const saved = await handleSave();
+    if (!saved) return;
 
     const attendanceText = status === 'attending' 
       ? `✅ *يسعدني ويشرفني الحضور بإذن الله*\n👥 *عدد الحضور:* ${companionCount}` 
@@ -134,6 +145,11 @@ export const RSVPSection: React.FC<RSVPSectionProps> = ({ data, initialGuestName
           </div>
         ) : (
           <form onSubmit={handleSave} className="mt-5 sm:mt-6 space-y-4 sm:space-y-5">
+            {errorMessage && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm font-sans-ar text-center">
+                {errorMessage}
+              </div>
+            )}
             {/* 1. Status Selection */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5">
               <button

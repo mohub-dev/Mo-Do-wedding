@@ -63,40 +63,33 @@ export const GuestLinkGeneratorModal: React.FC<GuestLinkGeneratorModalProps> = (
   // New guest inline input in bulk table
   const [inlineName, setInlineName] = useState<string>('');
   const [inlinePhone, setInlinePhone] = useState<string>('');
+  const [isLoadingGuests, setIsLoadingGuests] = useState<boolean>(false);
 
-  // Load guests from LocalStorage on mount
+  // Load guests from /api/guests on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_GUESTS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setGuestList(parsed);
-          return;
+    let mounted = true;
+    async function loadRemoteGuests() {
+      try {
+        setIsLoadingGuests(true);
+        const res = await fetch('/api/guests');
+        if (res.ok) {
+          const json = (await res.json()) as any;
+          if (mounted && json.success && Array.isArray(json.guests) && json.guests.length > 0) {
+            setGuestList(json.guests);
+            return;
+          }
         }
+      } catch (e) {
+        console.warn('Could not load guests from /api/guests', e);
+      } finally {
+        if (mounted) setIsLoadingGuests(false);
       }
-      // Initial default sample if empty
-      setGuestList([
-        { id: '1', name: 'م. رندا فضة', phone: '', sent: false },
-        { id: '2', name: 'د. أحمد المحمود وعائلته', phone: '', sent: false },
-        { id: '3', name: 'الأستاذ خالد العلي', phone: '', sent: false },
-        { id: '4', name: 'الأهل والأصدقاء الأعزاء', phone: '', sent: false },
-      ]);
-    } catch (e) {
-      console.error(e);
     }
+    loadRemoteGuests();
+    return () => {
+      mounted = false;
+    };
   }, []);
-
-  // Save to LocalStorage whenever guest list changes
-  useEffect(() => {
-    try {
-      if (guestList.length > 0) {
-        localStorage.setItem(STORAGE_KEY_GUESTS, JSON.stringify(guestList));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, [guestList]);
 
   const currentOrigin =
     typeof window !== 'undefined'
@@ -151,6 +144,11 @@ export const GuestLinkGeneratorModal: React.FC<GuestLinkGeneratorModalProps> = (
       setGuestList((prev) => [...newGuests, ...prev]);
       setBulkTextInput('');
       setShowBulkPasteArea(false);
+      fetch('/api/guests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guests: newGuests }),
+      }).catch((e) => console.warn('Failed to save bulk guests', e));
     }
   };
 
@@ -169,12 +167,18 @@ export const GuestLinkGeneratorModal: React.FC<GuestLinkGeneratorModalProps> = (
     setGuestList((prev) => [newGuest, ...prev]);
     setInlineName('');
     setInlinePhone('');
+
+    fetch('/api/guests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guest: newGuest }),
+    }).catch((e) => console.warn('Failed to save guest', e));
   };
 
   // Toggle sent status
   const handleToggleSent = (id: string) => {
-    setGuestList((prev) =>
-      prev.map((g) =>
+    setGuestList((prev) => {
+      const updated = prev.map((g) =>
         g.id === id
           ? {
               ...g,
@@ -184,20 +188,34 @@ export const GuestLinkGeneratorModal: React.FC<GuestLinkGeneratorModalProps> = (
                 : undefined,
             }
           : g
-      )
-    );
+      );
+      const target = updated.find((g) => g.id === id);
+      if (target) {
+        fetch('/api/guests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ guest: target }),
+        }).catch((e) => console.warn('Failed to update guest status', e));
+      }
+      return updated;
+    });
   };
 
   // Delete guest
   const handleDeleteGuest = (id: string) => {
     setGuestList((prev) => prev.filter((g) => g.id !== id));
+    fetch(`/api/guests/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch((e) =>
+      console.warn('Failed to delete guest', e)
+    );
   };
 
   // Clear all guests
   const handleClearAll = () => {
     if (window.confirm('هل أنت متأكد من مسح جميع الأسماء من القائمة؟')) {
       setGuestList([]);
-      localStorage.removeItem(STORAGE_KEY_GUESTS);
+      fetch('/api/guests/clear', { method: 'POST' }).catch((e) =>
+        console.warn('Failed to clear guests', e)
+      );
     }
   };
 

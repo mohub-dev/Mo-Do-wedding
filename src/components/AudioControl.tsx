@@ -3,12 +3,10 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { weddingAudio } from '../utils/audio';
 
 export const AudioControl: React.FC = () => {
-  const [isMuted, setIsMuted] = useState<boolean>(weddingAudio.getMuted());
   const [isPlaying, setIsPlaying] = useState<boolean>(weddingAudio.isPlaying());
 
   useEffect(() => {
     const unsubscribe = weddingAudio.subscribe(() => {
-      setIsMuted(weddingAudio.getMuted());
       setIsPlaying(weddingAudio.isPlaying());
     });
     return unsubscribe;
@@ -16,6 +14,7 @@ export const AudioControl: React.FC = () => {
 
   const toggleAudio = (e: React.MouseEvent) => {
     e.stopPropagation();
+    // Synchronously initiate audio toggle directly inside the user click
     weddingAudio.togglePlay();
   };
 
@@ -24,15 +23,16 @@ export const AudioControl: React.FC = () => {
       <button
         id="audio-toggle-btn"
         onClick={toggleAudio}
-        className={`group flex items-center gap-2 px-3.5 py-2 rounded-full border shadow-sm backdrop-blur-md transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none ${
-          !isPlaying || isMuted
+        className={`group flex items-center gap-2 px-3.5 py-2 rounded-full border shadow-sm backdrop-blur-md transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none cursor-pointer ${
+          !isPlaying
             ? 'bg-[#FCFAF7]/90 text-[#7E3243] border-[#E8D6DC]'
             : 'bg-[#832E41] text-[#FAF8F5] border-[#832E41] shadow-md'
         }`}
-        title={isPlaying && !isMuted ? 'كتم الصوت' : 'تشغيل الصوت'}
-        aria-label={isPlaying && !isMuted ? 'كتم الصوت' : 'تشغيل الصوت'}
+        title={isPlaying ? 'كتم الصوت' : 'تشغيل الصوت'}
+        aria-label={isPlaying ? 'كتم الصوت' : 'تشغيل الصوت'}
+        aria-pressed={isPlaying}
       >
-        {!isPlaying || isMuted ? (
+        {!isPlaying ? (
           <>
             <VolumeX className="w-4 h-4 text-[#A67E88]" />
             <span className="text-xs font-sans-ar text-[#832E41] hidden sm:inline">

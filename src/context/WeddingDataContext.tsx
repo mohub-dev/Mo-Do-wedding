@@ -3,166 +3,299 @@ import { RSVPRecord, GuestbookMessage, InvitationData, INVITATION_DATA } from '.
 
 interface WeddingDataContextType {
   invitationData: InvitationData;
-  updateInvitationData: (newData: Partial<InvitationData>) => void;
-  resetInvitationData: () => void;
+  isLoadingInvitation: boolean;
+  updateInvitationData: (newData: Partial<InvitationData>) => Promise<boolean>;
+  resetInvitationData: () => Promise<boolean>;
   rsvps: RSVPRecord[];
+  isLoadingRSVPs: boolean;
   guestbookMessages: GuestbookMessage[];
-  saveRSVP: (record: RSVPRecord) => boolean;
-  saveGuestbookMessage: (message: GuestbookMessage) => boolean;
-  deleteRSVP: (id: string) => void;
-  deleteGuestbookMessage: (id: string) => void;
+  isLoadingGuestbook: boolean;
+  saveRSVP: (record: RSVPRecord) => Promise<boolean>;
+  saveGuestbookMessage: (message: GuestbookMessage) => Promise<boolean>;
+  likeGuestbookMessage: (id: string) => Promise<boolean>;
+  deleteRSVP: (id: string) => Promise<boolean>;
+  deleteGuestbookMessage: (id: string) => Promise<boolean>;
   setGuestbookMessages: React.Dispatch<React.SetStateAction<GuestbookMessage[]>>;
   exportRSVPsCSV: () => void;
+  // Admin Session State
+  isAdminAuthenticated: boolean;
+  checkAdminSession: () => Promise<boolean>;
+  adminLogin: (password: string) => Promise<{ success: boolean; error?: string }>;
+  adminLogout: () => Promise<void>;
+  fetchRSVPs: () => Promise<void>;
+  fetchGuestbook: () => Promise<void>;
 }
 
 const WeddingDataContext = createContext<WeddingDataContextType | undefined>(undefined);
 
-const INVITATION_DATA_STORAGE_KEY = 'wedding_invitation_live_event_data_v1';
-const RSVP_STORAGE_KEY = 'wedding_invitation_rsvps';
-const GUESTBOOK_STORAGE_KEY = 'wedding_guestbook_messages';
-
-const INITIAL_GUESTBOOK_MESSAGES: GuestbookMessage[] = [
-  {
-    id: 'seed-1',
-    author: 'عائلة العريس',
-    relation: 'الأهل الكرام',
-    content: 'بارك الله لكما وبارك عليكما وجمع بينكما في خير وسعادة دائمة، ألف مبروك يا قرة أعيننا.',
-    createdAt: 'منذ يومين',
-    likes: 12,
-  },
-  {
-    id: 'seed-2',
-    author: 'أميرة ومحمود',
-    relation: 'أصدقاء العروسين',
-    content: 'ألف ترليون مبروك لأجمل عروسين محمد ودنيا! عقبال مئة عام من المودة والرحمة والهناء.',
-    createdAt: 'منذ يوم',
-    likes: 9,
-  },
-  {
-    id: 'seed-3',
-    author: 'المهندس كريم الشامي',
-    relation: 'صديق مقرب',
-    content: 'فرحتنا بيكم اليوم لا توصف، نراكم على خير في ليلة العمر ونحتفل معكم بإذن الله تعالى.',
-    createdAt: 'اليوم',
-    likes: 7,
-  },
-];
-
 export const WeddingDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [invitationData, setInvitationData] = useState<InvitationData>(INVITATION_DATA);
+  const [isLoadingInvitation, setIsLoadingInvitation] = useState<boolean>(true);
   const [rsvps, setRsvps] = useState<RSVPRecord[]>([]);
+  const [isLoadingRSVPs, setIsLoadingRSVPs] = useState<boolean>(false);
   const [guestbookMessages, setGuestbookMessages] = useState<GuestbookMessage[]>([]);
+  const [isLoadingGuestbook, setIsLoadingGuestbook] = useState<boolean>(true);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
 
-  // Load initial saved data from localStorage
-  useEffect(() => {
+  // 1. Fetch live invitation data from /api/invitation
+  const fetchInvitation = useCallback(async () => {
     try {
-      // 1. Load Live Event Data
-      const storedEventData = localStorage.getItem(INVITATION_DATA_STORAGE_KEY);
-      if (storedEventData) {
-        const parsed = JSON.parse(storedEventData);
-        setInvitationData((prev) => ({
-          ...prev,
-          ...parsed,
-          // Ensure timeline events fallback properly if empty
-          timelineEvents: parsed.timelineEvents && parsed.timelineEvents.length > 0
-            ? parsed.timelineEvents
-            : INVITATION_DATA.timelineEvents,
-        }));
-      }
-
-      // 2. Load RSVPs
-      const storedRsvps = localStorage.getItem(RSVP_STORAGE_KEY);
-      if (storedRsvps) {
-        setRsvps(JSON.parse(storedRsvps));
-      }
-
-      // 3. Load Guestbook
-      const storedMsgs = localStorage.getItem(GUESTBOOK_STORAGE_KEY);
-      if (storedMsgs) {
-        setGuestbookMessages(JSON.parse(storedMsgs));
-      } else {
-        setGuestbookMessages(INITIAL_GUESTBOOK_MESSAGES);
+      setIsLoadingInvitation(true);
+      const res = await fetch('/api/invitation');
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        if (json.success && json.data) {
+          setInvitationData((prev) => ({
+            ...prev,
+            ...json.data,
+            timelineEvents:
+              json.data.timelineEvents && json.data.timelineEvents.length > 0
+                ? json.data.timelineEvents
+                : INVITATION_DATA.timelineEvents,
+          }));
+        }
       }
     } catch (e) {
-      console.warn('Error loading wedding data from localStorage', e);
+      console.warn('Could not fetch remote invitation data, using defaults.', e);
+    } finally {
+      setIsLoadingInvitation(false);
     }
   }, []);
 
-  // Update Live Event Data in State and LocalStorage
-  const updateInvitationData = useCallback((newData: Partial<InvitationData>) => {
-    setInvitationData((prev) => {
-      const updated = { ...prev, ...newData };
-      try {
-        localStorage.setItem(INVITATION_DATA_STORAGE_KEY, JSON.stringify(updated));
-      } catch (err) {
-        console.warn('Failed to persist live invitation data', err);
+  // 2. Fetch live guestbook messages from /api/guestbook
+  const fetchGuestbook = useCallback(async () => {
+    try {
+      setIsLoadingGuestbook(true);
+      const res = await fetch('/api/guestbook');
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        if (json.success && Array.isArray(json.messages)) {
+          setGuestbookMessages(json.messages);
+        }
       }
-      return updated;
-    });
+    } catch (e) {
+      console.warn('Could not fetch remote guestbook messages.', e);
+    } finally {
+      setIsLoadingGuestbook(false);
+    }
   }, []);
 
-  // Reset to Defaults
-  const resetInvitationData = useCallback(() => {
-    setInvitationData(INVITATION_DATA);
+  // 3. Fetch RSVPs (Admin only)
+  const fetchRSVPs = useCallback(async () => {
     try {
-      localStorage.removeItem(INVITATION_DATA_STORAGE_KEY);
+      setIsLoadingRSVPs(true);
+      const res = await fetch('/api/rsvps');
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        if (json.success && Array.isArray(json.rsvps)) {
+          setRsvps(json.rsvps);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch remote RSVPs.', e);
+    } finally {
+      setIsLoadingRSVPs(false);
+    }
+  }, []);
+
+  // 4. Check admin session status
+  const checkAdminSession = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/admin/session');
+      if (res.ok) {
+        const json = (await res.json()) as any;
+        const authed = Boolean(json.authenticated);
+        setIsAdminAuthenticated(authed);
+        if (authed) {
+          fetchRSVPs();
+        }
+        return authed;
+      }
+      setIsAdminAuthenticated(false);
+      return false;
+    } catch {
+      setIsAdminAuthenticated(false);
+      return false;
+    }
+  }, [fetchRSVPs]);
+
+  // Initial data loading
+  useEffect(() => {
+    fetchInvitation();
+    fetchGuestbook();
+    checkAdminSession();
+  }, [fetchInvitation, fetchGuestbook, checkAdminSession]);
+
+  // Admin Login
+  const adminLogin = useCallback(async (password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const json = (await res.json()) as any;
+      if (res.ok && json.success) {
+        setIsAdminAuthenticated(true);
+        fetchRSVPs();
+        return { success: true };
+      }
+      return { success: false, error: json.error || 'فشل تسجيل الدخول' };
+    } catch (e: any) {
+      return { success: false, error: 'تعذر الاتصال بالخادم. يرجى التحقق من الشبكة.' };
+    }
+  }, [fetchRSVPs]);
+
+  // Admin Logout
+  const adminLogout = useCallback(async () => {
+    try {
+      await fetch('/api/admin/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    } finally {
+      setIsAdminAuthenticated(false);
+      setRsvps([]);
+    }
+  }, []);
+
+  // Update Live Event Data
+  const updateInvitationData = useCallback(async (newData: Partial<InvitationData>): Promise<boolean> => {
+    const updated = { ...invitationData, ...newData };
+    try {
+      const res = await fetch('/api/invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+      if (res.ok) {
+        setInvitationData(updated);
+        return true;
+      }
+      return false;
     } catch (err) {
-      console.warn('Failed to clear stored event data', err);
+      console.error('Failed to save live invitation data to D1', err);
+      return false;
+    }
+  }, [invitationData]);
+
+  // Reset to Defaults
+  const resetInvitationData = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/invitation/reset', { method: 'POST' });
+      if (res.ok) {
+        setInvitationData(INVITATION_DATA);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Failed to reset stored event data', err);
+      return false;
     }
   }, []);
 
   // Save an RSVP
-  const saveRSVP = useCallback((record: RSVPRecord): boolean => {
-    setRsvps((prev) => {
-      const updated = [record, ...prev.filter((r) => r.id !== record.id && r.guestName !== record.guestName)];
-      try {
-        localStorage.setItem(RSVP_STORAGE_KEY, JSON.stringify(updated));
-      } catch (err) {
-        console.warn(err);
+  const saveRSVP = useCallback(async (record: RSVPRecord): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/rsvps', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(record),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        console.error('RSVP submission error:', errJson);
+        return false;
       }
-      return updated;
-    });
-    return true;
+      const json = (await res.json()) as any;
+      if (json.success && json.record) {
+        setRsvps((prev) => [
+          json.record,
+          ...prev.filter((r) => r.id !== json.record.id && r.guestName !== json.record.guestName),
+        ]);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('RSVP network error:', err);
+      return false;
+    }
   }, []);
 
   // Save a Guestbook message
-  const saveGuestbookMessage = useCallback((msg: GuestbookMessage): boolean => {
-    setGuestbookMessages((prev) => {
-      const updated = [msg, ...prev.filter((m) => m.id !== msg.id)];
-      try {
-        localStorage.setItem(GUESTBOOK_STORAGE_KEY, JSON.stringify(updated));
-      } catch (err) {
-        console.warn(err);
+  const saveGuestbookMessage = useCallback(async (msg: GuestbookMessage): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/guestbook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msg),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        console.error('Guestbook submission error:', errJson);
+        return false;
       }
-      return updated;
-    });
-    return true;
+      const json = (await res.json()) as any;
+      if (json.success && json.message) {
+        setGuestbookMessages((prev) => [
+          json.message,
+          ...prev.filter((m) => m.id !== json.message.id),
+        ]);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Guestbook network error:', err);
+      return false;
+    }
   }, []);
 
-  // Delete an RSVP
-  const deleteRSVP = useCallback((id: string) => {
-    setRsvps((prev) => {
-      const updated = prev.filter((r) => r.id !== id);
-      try {
-        localStorage.setItem(RSVP_STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.warn(e);
-      }
-      return updated;
-    });
+  // Like a Guestbook message
+  const likeGuestbookMessage = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      setGuestbookMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, likes: m.likes + 1 } : m))
+      );
+      const res = await fetch(`/api/guestbook/${encodeURIComponent(id)}/like`, {
+        method: 'POST',
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }, []);
 
-  // Delete a Guestbook Message
-  const deleteGuestbookMessage = useCallback((id: string) => {
-    setGuestbookMessages((prev) => {
-      const updated = prev.filter((m) => m.id !== id);
-      try {
-        localStorage.setItem(GUESTBOOK_STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.warn(e);
+  // Delete an RSVP (Admin)
+  const deleteRSVP = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/rsvps/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setRsvps((prev) => prev.filter((r) => r.id !== id));
+        return true;
       }
-      return updated;
-    });
+      return false;
+    } catch (e) {
+      console.error('Failed to delete RSVP', e);
+      return false;
+    }
+  }, []);
+
+  // Delete a Guestbook Message (Admin)
+  const deleteGuestbookMessage = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/guestbook/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setGuestbookMessages((prev) => prev.filter((m) => m.id !== id));
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('Failed to delete guestbook message', e);
+      return false;
+    }
   }, []);
 
   // Export all RSVPs to CSV (Excel-ready with Arabic UTF-8 BOM)
@@ -192,16 +325,26 @@ export const WeddingDataProvider: React.FC<{ children: ReactNode }> = ({ childre
     <WeddingDataContext.Provider
       value={{
         invitationData,
+        isLoadingInvitation,
         updateInvitationData,
         resetInvitationData,
         rsvps,
+        isLoadingRSVPs,
         guestbookMessages,
+        isLoadingGuestbook,
         saveRSVP,
         saveGuestbookMessage,
+        likeGuestbookMessage,
         deleteRSVP,
         deleteGuestbookMessage,
         setGuestbookMessages,
         exportRSVPsCSV,
+        isAdminAuthenticated,
+        checkAdminSession,
+        adminLogin,
+        adminLogout,
+        fetchRSVPs,
+        fetchGuestbook,
       }}
     >
       {children}

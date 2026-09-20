@@ -1,0 +1,9 @@
+# Cloudflare Workers Local Development Secrets
+# Copy this file to .dev.vars for local testing with wrangler dev
+# DO NOT commit .dev.vars to Git!
+
+# The secret password for accessing the Admin Dashboard
+ADMIN_PASSWORD=change_this_to_a_secure_password
+
+# A strong random secret key used by Web Crypto HMAC-SHA256 to sign session cookies
+SESSION_SECRET=change_this_to_a_long_random_secret_for_hmac_signing

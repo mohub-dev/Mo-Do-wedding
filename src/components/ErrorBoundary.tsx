@@ -24,7 +24,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   private handleReset = () => {
-    localStorage.removeItem('wedding_invitation_live_event_data_v1');
     window.location.reload();
   };
 
