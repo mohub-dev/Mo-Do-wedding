@@ -1,67 +1,80 @@
-// Wedding Audio Player - Plays automatically on envelope opening
+// Wedding Audio Player - Reliable HTML5 Audio Management
 
-const DB_NAME = 'wedding_invitation_audio_db';
-const STORE_NAME = 'audio_files';
-const AUDIO_KEY = 'wedding_song';
-
-// Candidate paths where user's audio file may be located
-const AUDIO_CANDIDATES = [
-  '/wedding_song.mp3',
-  '/assets/wedding_song.mp3',
-  '/wedding_song.wav',
-  '/assets/wedding_song.wav',
-  '/wedding_song.m4a',
-  '/assets/wedding_song.m4a',
-  '/wedding_song.aac',
-  '/assets/wedding_song.aac',
-  '/wedding_song.ogg',
-  '/assets/wedding_song.ogg',
-  '/wedding_audio.mp3',
-  '/assets/wedding_audio.mp3',
-  '/song.mp3',
-  '/assets/song.mp3',
-  '/audio.mp3',
-  '/assets/audio.mp3',
-];
+const AUDIO_SRC = '/assets/wedding_song.mp3';
 
 class WeddingAudioPlayer {
   private audioEl: HTMLAudioElement | null = null;
-  private isMutedState: boolean = false;
-  private isPlayingState: boolean = true; // Enabled and active by default
+  private isPlayingState: boolean = false;
   private listeners: Array<() => void> = [];
-  private activeSource: string = '/assets/wedding_song.mp3';
-  private autoStartTriggered: boolean = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.audioEl = new Audio();
-      this.audioEl.loop = true;
-      this.audioEl.preload = 'auto';
-      this.audioEl.src = this.activeSource;
-
-      this.audioEl.addEventListener('play', () => {
-        this.isPlayingState = true;
-        this.isMutedState = false;
-        this.notify();
-      });
-      this.audioEl.addEventListener('pause', () => {
-        // If it was paused manually
-        if (this.isMutedState) {
-          this.isPlayingState = false;
-        }
-        this.notify();
-      });
-      this.audioEl.addEventListener('ended', () => {
-        this.isPlayingState = false;
-        this.notify();
-      });
-
-      this.initAudioSource();
-      this.setupAutoStart();
+      this.getOrCreateAudioElement();
     }
   }
 
-  public subscribe(cb: () => void) {
+  public getOrCreateAudioElement(): HTMLAudioElement | null {
+    if (typeof window === 'undefined') return null;
+
+    if (!this.audioEl) {
+      let el = document.getElementById('wedding-audio-element') as (HTMLAudioElement & { _weddingListenersAttached?: boolean }) | null;
+      if (!el) {
+        el = document.createElement('audio') as HTMLAudioElement & { _weddingListenersAttached?: boolean };
+        el.id = 'wedding-audio-element';
+        el.src = AUDIO_SRC;
+        el.preload = 'auto';
+        el.loop = true;
+        (el as any).playsInline = true;
+        el.style.display = 'none';
+        document.body.appendChild(el);
+      }
+      this.audioEl = el;
+
+      // Prevent event listener accumulation during React re-renders or Fast Refresh
+      if (!el._weddingListenersAttached) {
+        el._weddingListenersAttached = true;
+
+        el.addEventListener('play', () => {
+          this.isPlayingState = true;
+          this.notify();
+        });
+
+        el.addEventListener('pause', () => {
+          this.isPlayingState = false;
+          this.notify();
+        });
+
+        el.addEventListener('ended', () => {
+          this.isPlayingState = false;
+          this.notify();
+        });
+
+        el.addEventListener('canplay', () => {
+          this.notify();
+        });
+
+        el.addEventListener('error', (e) => {
+          console.warn('Wedding audio encountered error:', e);
+          this.isPlayingState = false;
+          this.notify();
+        });
+      }
+    }
+
+    return this.audioEl;
+  }
+
+  public cleanup() {
+    if (this.audioEl) {
+      this.audioEl.pause();
+      this.audioEl.remove();
+      this.audioEl = null;
+    }
+    this.listeners = [];
+    this.isPlayingState = false;
+  }
+
+  public subscribe(cb: () => void): () => void {
     this.listeners.push(cb);
     return () => {
       this.listeners = this.listeners.filter((l) => l !== cb);
@@ -69,115 +82,46 @@ class WeddingAudioPlayer {
   }
 
   private notify() {
-    this.listeners.forEach((cb) => cb());
-  }
-
-  public setupAutoStart() {
-    if (typeof window === 'undefined' || this.autoStartTriggered) return;
-    this.autoStartTriggered = true;
-
-    // 1. Attempt immediate play (will succeed if browser allows unprompted audio)
-    this.play();
-
-    // 2. Add universal listeners so if the browser blocked autoplay, the first click/tap plays it
-    const handleFirstGesture = () => {
-      if (!this.isMutedState) {
-        this.play();
-      }
-      removeListeners();
-    };
-
-    const removeListeners = () => {
-      ['click', 'touchstart', 'touchend', 'mousedown', 'keydown', 'scroll'].forEach((event) => {
-        window.removeEventListener(event, handleFirstGesture, { capture: true });
-      });
-    };
-
-    ['click', 'touchstart', 'touchend', 'mousedown', 'keydown', 'scroll'].forEach((event) => {
-      window.addEventListener(event, handleFirstGesture, { capture: true, once: true });
-    });
-  }
-
-  private async openDB(): Promise<IDBDatabase | null> {
-    if (typeof indexedDB === 'undefined') return null;
-    return new Promise((resolve) => {
-      const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = () => {
-        const db = req.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME);
-        }
-      };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => resolve(null);
-    });
-  }
-
-  private async initAudioSource() {
-    // 1. Check IndexedDB first
-    try {
-      const db = await this.openDB();
-      if (db) {
-        const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const getReq = store.get(AUDIO_KEY);
-        getReq.onsuccess = () => {
-          const file = getReq.result;
-          if (file instanceof Blob && this.audioEl) {
-            this.activeSource = URL.createObjectURL(file);
-            this.audioEl.src = this.activeSource;
-            this.notify();
-            return;
-          }
-          this.checkCandidateFiles();
-        };
-        getReq.onerror = () => this.checkCandidateFiles();
-      } else {
-        this.checkCandidateFiles();
-      }
-    } catch {
-      this.checkCandidateFiles();
-    }
-  }
-
-  private async checkCandidateFiles() {
-    for (const url of AUDIO_CANDIDATES) {
+    this.listeners.forEach((cb) => {
       try {
-        const res = await fetch(url, { method: 'HEAD' });
-        if (res.ok && this.audioEl) {
-          this.activeSource = url;
-          this.audioEl.src = url;
-          this.notify();
-          return;
-        }
-      } catch {
-        // continue checking next candidate
+        cb();
+      } catch (e) {
+        console.error('Audio listener error:', e);
       }
-    }
-
-    // Default target path where the user places the file
-    if (this.audioEl && !this.activeSource) {
-      this.activeSource = '/assets/wedding_song.mp3';
-      this.audioEl.src = this.activeSource;
-    }
+    });
   }
 
-  // Play immediately upon envelope opening user gesture
-  public play() {
-    this.isMutedState = false;
-    if (this.audioEl) {
-      this.audioEl.muted = false;
-      const playPromise = this.audioEl.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            this.isPlayingState = true;
-            this.notify();
-          })
-          .catch((err) => {
-            console.warn('Audio playback attempt:', err);
-          });
-      }
+  /**
+   * CRITICAL AUTOPLAY COMPLIANCE:
+   * audio.play() is initiated SYNCHRONOUSLY within the user gesture handler (before any await/setTimeout).
+   */
+  public play(): Promise<boolean> {
+    const audio = this.getOrCreateAudioElement();
+    if (!audio) return Promise.resolve(false);
+
+    audio.muted = false;
+    audio.volume = 1.0;
+
+    // Call play() synchronously directly inside the user gesture
+    const promise = audio.play();
+
+    if (promise !== undefined) {
+      return promise
+        .then(() => {
+          this.isPlayingState = true;
+          this.notify();
+          return true;
+        })
+        .catch((err) => {
+          console.warn('Audio play was deferred or blocked by browser:', err?.name || err);
+          this.isPlayingState = false;
+          this.notify();
+          return false;
+        });
+    } else {
+      this.isPlayingState = !audio.paused;
+      this.notify();
+      return Promise.resolve(this.isPlayingState);
     }
   }
 
@@ -189,33 +133,29 @@ class WeddingAudioPlayer {
     this.notify();
   }
 
-  public togglePlay() {
+  public togglePlay(): Promise<boolean> {
     if (this.isPlayingState) {
       this.pause();
+      return Promise.resolve(false);
     } else {
-      this.play();
+      return this.play();
     }
   }
 
+  public isPlaying(): boolean {
+    return this.isPlayingState;
+  }
+
+  public getMuted(): boolean {
+    return !this.isPlayingState;
+  }
+
   public setMuted(muted: boolean) {
-    this.isMutedState = muted;
-    if (this.audioEl) {
-      this.audioEl.muted = muted;
-    }
     if (muted) {
       this.pause();
     } else {
       this.play();
     }
-    this.notify();
-  }
-
-  public getMuted(): boolean {
-    return this.isMutedState;
-  }
-
-  public isPlaying(): boolean {
-    return this.isPlayingState;
   }
 }
 

@@ -51,15 +51,11 @@ export default function App() {
     } catch (e) {
       console.warn('Failed to parse URL query params', e);
     }
-
-    // Automatically initialize audio playback on load
-    weddingAudio.setupAutoStart();
   }, [invitationData.groom, invitationData.bride, invitationData.day, invitationData.date, invitationData.venueName]);
 
   // When envelope opens
   const handleOpen = useCallback(() => {
     setLeavesActive(true);
-    weddingAudio.play();
     setIsOpened(true);
   }, []);
 

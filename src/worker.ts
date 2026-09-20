@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cloudflare Worker for Mo-Do Wedding Invitation
  * Handles /api/* routes with Cloudflare D1 and secure admin authentication.
  * All other routes are delegated to Cloudflare Workers Static Assets.
@@ -695,8 +695,155 @@ export default {
     }
 
     /* -----------------------------------------------------------------
+     * Audio Media Assets with Byte-Range Streaming Support (Safari/iOS/Chrome)
+     * --------------------------------------------------------------- */
+    // Redirect root audio path to assets directory to avoid SPA HTML fallback
+    if (url.pathname === '/wedding_song.mp3') {
+      const redirectUrl = new URL(request.url);
+      redirectUrl.pathname = '/assets/wedding_song.mp3';
+      return Response.redirect(redirectUrl.toString(), 301);
+    }
+
+    if (url.pathname === '/assets/wedding_song.mp3') {
+      // Only GET and HEAD methods are valid for media assets
+      if (request.method !== 'GET' && request.method !== 'HEAD') {
+        return new Response('Method Not Allowed', {
+          status: 405,
+          headers: { Allow: 'GET, HEAD' },
+        });
+      }
+
+      const assetRes = await env.ASSETS.fetch(request);
+
+      // Prevent returning index.html or SPA fallback when audio asset is missing
+      if (!assetRes.ok || assetRes.headers.get('Content-Type')?.includes('text/html')) {
+        return new Response('Audio file not found', {
+          status: 404,
+          headers: { 'Content-Type': 'text/plain' },
+        });
+      }
+
+      // HEAD requests: return headers without body and without reading arrayBuffer
+      if (request.method === 'HEAD') {
+        const headers = new Headers(assetRes.headers);
+        headers.set('Accept-Ranges', 'bytes');
+        if (!headers.has('Content-Type') || headers.get('Content-Type') === 'application/octet-stream') {
+          headers.set('Content-Type', 'audio/mpeg');
+        }
+        return new Response(null, {
+          status: assetRes.status,
+          statusText: assetRes.statusText,
+          headers,
+        });
+      }
+
+      // If upstream/platform already generated a 206 Partial Content response, forward directly
+      if (assetRes.status === 206) {
+        const headers = new Headers(assetRes.headers);
+        headers.set('Accept-Ranges', 'bytes');
+        return new Response(assetRes.body, {
+          status: 206,
+          statusText: 'Partial Content',
+          headers,
+        });
+      }
+
+      const rangeHeader = request.headers.get('Range');
+
+      // GET with Range header when upstream gave 200 OK
+      if (request.method === 'GET' && rangeHeader && assetRes.status === 200) {
+        // Validate bytes= range syntax
+        const rangeMatch = rangeHeader.trim().match(/^bytes=(\d*)-(\d*)$/);
+        if (!rangeMatch) {
+          return new Response(null, {
+            status: 416,
+            statusText: 'Range Not Satisfiable',
+            headers: {
+              'Accept-Ranges': 'bytes',
+            },
+          });
+        }
+
+        const fullBuffer = await assetRes.arrayBuffer();
+        const totalSize = fullBuffer.byteLength;
+
+        const [, startStr, endStr] = rangeMatch;
+        let start: number;
+        let end: number;
+
+        if (startStr !== '' && endStr !== '') {
+          start = parseInt(startStr, 10);
+          end = parseInt(endStr, 10);
+        } else if (startStr !== '' && endStr === '') {
+          start = parseInt(startStr, 10);
+          end = totalSize - 1;
+        } else if (startStr === '' && endStr !== '') {
+          const suffixLength = parseInt(endStr, 10);
+          start = Math.max(0, totalSize - suffixLength);
+          end = totalSize - 1;
+        } else {
+          return new Response(null, {
+            status: 416,
+            statusText: 'Range Not Satisfiable',
+            headers: {
+              'Content-Range': `bytes */${totalSize}`,
+              'Accept-Ranges': 'bytes',
+            },
+          });
+        }
+
+        // Validate range bounds: 416 if start is beyond totalSize or start > end
+        if (isNaN(start) || isNaN(end) || start >= totalSize || start > end) {
+          return new Response(null, {
+            status: 416,
+            statusText: 'Range Not Satisfiable',
+            headers: {
+              'Content-Range': `bytes */${totalSize}`,
+              'Accept-Ranges': 'bytes',
+            },
+          });
+        }
+
+        const actualEnd = Math.min(end, totalSize - 1);
+        const chunkLength = actualEnd - start + 1;
+        const chunk = fullBuffer.slice(start, actualEnd + 1);
+
+        const headers = new Headers();
+        headers.set('Content-Type', assetRes.headers.get('Content-Type') || 'audio/mpeg');
+        headers.set('Content-Range', `bytes ${start}-${actualEnd}/${totalSize}`);
+        headers.set('Content-Length', String(chunkLength));
+        headers.set('Accept-Ranges', 'bytes');
+
+        const etag = assetRes.headers.get('ETag');
+        if (etag) headers.set('ETag', etag);
+
+        const cacheControl = assetRes.headers.get('Cache-Control');
+        headers.set('Cache-Control', cacheControl || 'public, max-age=31536000, immutable');
+
+        return new Response(chunk, {
+          status: 206,
+          statusText: 'Partial Content',
+          headers,
+        });
+      }
+
+      // Standard 200 GET response with Accept-Ranges advertised
+      const headers = new Headers(assetRes.headers);
+      headers.set('Accept-Ranges', 'bytes');
+      if (!headers.has('Content-Type') || headers.get('Content-Type') === 'application/octet-stream') {
+        headers.set('Content-Type', 'audio/mpeg');
+      }
+
+      return new Response(assetRes.body, {
+        status: assetRes.status,
+        statusText: assetRes.statusText,
+        headers,
+      });
+    }
+
+    /* -----------------------------------------------------------------
      * Static Assets Delivery with SPA Fallback
-     * All non-API requests (HTML, JS, CSS, MP3, images) are served directly
+     * All non-API requests (HTML, JS, CSS, images) are served directly
      * by Cloudflare Workers Static Assets.
      * --------------------------------------------------------------- */
     return env.ASSETS.fetch(request);
