@@ -28,6 +28,7 @@ import { LiveEventEditor } from './LiveEventEditor';
 import { formatWhatsAppInvitation, openWhatsAppShare } from '../utils/whatsappShare';
 import { ShareOptionsModal } from './ShareOptionsModal';
 import { GuestLinkGeneratorModal } from './GuestLinkGeneratorModal';
+import { buildInvitationUrl } from '../utils/invitationUrl';
 
 interface AdminDashboardProps {
   data: InvitationData;
@@ -99,9 +100,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
 
   // Guest link computation
   const currentData = invitationData || data;
-  const generatedGuestLink = targetGuestName.trim()
-    ? `${origin}?guest=${encodeURIComponent(targetGuestName.trim())}`
-    : origin;
+  const generatedGuestLink = buildInvitationUrl(targetGuestName);
 
   const handleCopyGuestLink = () => {
     navigator.clipboard.writeText(generatedGuestLink);

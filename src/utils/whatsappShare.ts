@@ -1,4 +1,5 @@
-import { InvitationData } from '../types';
+import type { InvitationData } from '../types';
+import { buildInvitationUrl } from './invitationUrl';
 
 /**
  * Formats a royal WhatsApp invitation card message
@@ -9,20 +10,11 @@ export function formatWhatsAppInvitation(
   guestName?: string,
   customUrl?: string
 ): string {
-  const currentOrigin =
-    typeof window !== 'undefined'
-      ? window.location.origin + window.location.pathname
-      : '';
-
   const trimmedGuest = guestName?.trim() || '';
 
   const link = customUrl
     ? customUrl
-    : trimmedGuest
-    ? `${currentOrigin}?guest=${encodeURIComponent(trimmedGuest)}`
-    : typeof window !== 'undefined'
-    ? window.location.href
-    : '';
+    : buildInvitationUrl(trimmedGuest);
 
   const cleanVerse = (
     data.quranVerseText ||
@@ -64,7 +56,7 @@ export function formatWhatsAppInvitation(
   ].join('\n');
 }
 
-export function openWhatsAppShare(text: string, phoneNumber?: string) {
+export function buildWhatsAppShareUrl(text: string, phoneNumber?: string): string {
   let cleanPhone = phoneNumber ? phoneNumber.replace(/[^0-9+]/g, '').trim() : '';
   if (cleanPhone) {
     if (cleanPhone.startsWith('+')) {
@@ -72,10 +64,16 @@ export function openWhatsAppShare(text: string, phoneNumber?: string) {
     } else if (cleanPhone.startsWith('00')) {
       cleanPhone = cleanPhone.substring(2);
     }
-    const url = `https://api.whatsapp.com/send?phone=${encodeURIComponent(cleanPhone)}&text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
-    return;
   }
-  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
-  window.open(url, '_blank');
+
+  const whatsappUrl = new URL('https://wa.me/');
+  if (cleanPhone) {
+    whatsappUrl.pathname = `/${cleanPhone}`;
+  }
+  whatsappUrl.searchParams.set('text', text);
+  return whatsappUrl.toString();
+}
+
+export function openWhatsAppShare(text: string, phoneNumber?: string) {
+  window.open(buildWhatsAppShareUrl(text, phoneNumber), '_blank');
 }

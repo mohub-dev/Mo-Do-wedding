@@ -22,36 +22,32 @@ export default function App() {
     }
   });
 
-  // Extract personalized guest name from URL parameters (?guest=... or ?to=... or ?name=...)
+  // The fragment is client-only, so every personalized link keeps the same crawler-visible /invite URL.
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const name = params.get('guest') || params.get('to') || params.get('name') || '';
-      if (name.trim()) {
-        const trimmed = name.trim();
-        setGuestName(trimmed);
-        document.title = `دعوة خاصة لـ ${trimmed} 🌸 | زفاف ${invitationData.groom} و ${invitationData.bride}`;
-        
-        // Update OpenGraph Title & Description for dynamic guest preview
-        const ogTitle = document.querySelector('meta[property="og:title"]');
-        if (ogTitle) {
-          ogTitle.setAttribute('content', `دعوة خاصة لـ ${trimmed} 🌸 | زفاف ${invitationData.groom} & ${invitationData.bride} 💍`);
-        }
-        const ogDesc = document.querySelector('meta[property="og:description"]');
-        if (ogDesc) {
-          ogDesc.setAttribute('content', `يتشرف العروسين بدعوة سيادتكم (${trimmed}) لمشاركتهم فرحتهم الكبرى يوم ${invitationData.day} ${invitationData.date} بقاعة ${invitationData.venueName}.`);
-        }
-      } else {
-        document.title = `دعوة زفاف ${invitationData.groom} و ${invitationData.bride} | بطاقة دعوة إلكترونية فاخرة`;
-      }
+    const readUrlState = () => {
+      try {
+        const hashParams = new URLSearchParams(
+          window.location.hash.startsWith('#')
+            ? window.location.hash.slice(1)
+            : window.location.hash
+        );
+        const queryParams = new URLSearchParams(window.location.search);
+        const name = hashParams.get('guest') || queryParams.get('guest') || '';
 
-      if (params.has('admin') || params.get('view') === 'admin') {
-        setIsAdminView(true);
+        setGuestName(name.trim());
+
+        if (queryParams.has('admin') || queryParams.get('view') === 'admin') {
+          setIsAdminView(true);
+        }
+      } catch (e) {
+        console.warn('Failed to parse invitation URL', e);
       }
-    } catch (e) {
-      console.warn('Failed to parse URL query params', e);
-    }
-  }, [invitationData.groom, invitationData.bride, invitationData.day, invitationData.date, invitationData.venueName]);
+    };
+
+    readUrlState();
+    window.addEventListener('hashchange', readUrlState);
+    return () => window.removeEventListener('hashchange', readUrlState);
+  }, []);
 
   // When envelope opens
   const handleOpen = useCallback(() => {

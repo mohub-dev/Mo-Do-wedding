@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { InvitationData } from '../types';
 import { formatWhatsAppInvitation, openWhatsAppShare } from '../utils/whatsappShare';
+import { buildInvitationUrl } from '../utils/invitationUrl';
 import { createRoyalCardImage, copyImageToClipboard, downloadImageBlob } from '../utils/cardImageExport';
 import { ShareOptionsModal } from './ShareOptionsModal';
 
@@ -91,15 +92,8 @@ export const GuestLinkGeneratorModal: React.FC<GuestLinkGeneratorModalProps> = (
     };
   }, []);
 
-  const currentOrigin =
-    typeof window !== 'undefined'
-      ? window.location.origin + window.location.pathname
-      : '';
-
   const getGuestLink = (name: string) => {
-    return name.trim()
-      ? `${currentOrigin}?guest=${encodeURIComponent(name.trim())}`
-      : currentOrigin;
+    return buildInvitationUrl(name);
   };
 
   // Process Bulk Paste

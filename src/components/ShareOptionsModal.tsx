@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { InvitationData } from '../types';
 import { formatWhatsAppInvitation, openWhatsAppShare } from '../utils/whatsappShare';
+import { buildInvitationUrl } from '../utils/invitationUrl';
 import {
   createRoyalCardImage,
   downloadImageBlob,
@@ -69,18 +70,9 @@ export const ShareOptionsModal: React.FC<ShareOptionsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const currentOrigin =
-    typeof window !== 'undefined'
-      ? window.location.origin + window.location.pathname
-      : '';
-
   const targetLink = customUrl
     ? customUrl
-    : guestName.trim()
-    ? `${currentOrigin}?guest=${encodeURIComponent(guestName.trim())}`
-    : typeof window !== 'undefined'
-    ? window.location.href
-    : '';
+    : buildInvitationUrl(guestName);
 
   const formattedMessage = formatWhatsAppInvitation(data, guestName, targetLink);
 
