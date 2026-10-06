@@ -79,6 +79,16 @@ SESSION_SECRET=your_local_random_hmac_secret_key_12345
 npm run d1:migrate:local
 ```
 
+### الرسائل الصوتية للعروسين
+
+تُحفظ رسائل الضيوف الصوتية في Cloudflare R2 بشكل خاص، بينما تُحفظ بياناتها الوصفية في D1. قبل النشر أنشئ الـ Bucket:
+
+```bash
+npx wrangler r2 bucket create mo-do-wedding-voice-messages
+```
+
+ثم طبّق الترحيلات محليًا أو على الإنتاج. لا تجعل الـ Bucket عامًا؛ الاستماع للتسجيلات متاح فقط من لوحة الإدارة عبر Worker.
+
 ### 4. تشغيل خادم التطوير السحابي محليًا (Run Local Worker & Assets)
 ```bash
 npm run build

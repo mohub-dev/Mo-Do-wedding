@@ -19,6 +19,7 @@ import { EtiquetteCards } from './EtiquetteCards';
 import { VIPEntryPassModal } from './VIPEntryPassModal';
 import { RSVPSection } from './RSVPSection';
 import { Guestbook } from './Guestbook';
+import { VoiceMessageCard } from './VoiceMessageCard';
 import { QuranicVerse } from './QuranicVerse';
 import { ShareOptionsModal } from './ShareOptionsModal';
 import { GuestLinkGeneratorModal } from './GuestLinkGeneratorModal';
@@ -148,6 +149,21 @@ export const WeddingCard: React.FC<WeddingCardProps> = ({
             </div>
           </div>
 
+          {/* A transparent childhood portrait of the couple, kept free of a background. */}
+          <figure id="card-childhood-couple-photo" className="-mt-1 sm:-mt-2">
+            <img
+              src="/assets/couple-childhood-hug.png"
+              alt="صورة طفولة العروسين"
+              className="w-44 xs:w-52 sm:w-60 md:w-64 h-auto mx-auto object-contain drop-shadow-[0_10px_18px_rgba(131,46,65,0.16)]"
+            />
+            <figcaption
+              dir="rtl"
+              className="mt-1.5 font-sans-ar text-sm xs:text-base sm:text-lg text-[#832E41] font-semibold leading-relaxed"
+            >
+              «من هنا بدأت الحكاية… واليوم نبدأ أجمل فصولها معًا»
+            </figcaption>
+          </figure>
+
           {/* 5. بطاقة الموعد والتاريخ */}
           <div
             id="card-date-time-box"
@@ -229,6 +245,7 @@ export const WeddingCard: React.FC<WeddingCardProps> = ({
           {/* 8. إرشادات الحفل والزي المقترح (Etiquette & Dress Code) */}
           <div className="w-full max-w-sm sm:max-w-md mx-auto">
             <EtiquetteCards
+              isVisible={data.showEtiquette !== false}
               dressCode={data.dressCode}
               childrenPolicy={data.childrenPolicy}
               parkingPolicy={data.parkingPolicy}
@@ -260,6 +277,8 @@ export const WeddingCard: React.FC<WeddingCardProps> = ({
 
       {/* 3. Smart RSVP Section (تأكيد الحضور) */}
       <RSVPSection data={data} initialGuestName={guestName} />
+
+      <VoiceMessageCard initialGuestName={guestName} />
 
       {/* 4. Digital Guestbook (سجل التهاني والمباركات) */}
       <Guestbook initialAuthor={guestName} groom={data.groom} bride={data.bride} />

@@ -2,16 +2,22 @@ import React from 'react';
 import { Sparkles, Baby, Car } from 'lucide-react';
 
 interface EtiquetteCardsProps {
+  isVisible?: boolean;
   dressCode?: string;
   childrenPolicy?: string;
   parkingPolicy?: string;
 }
 
 export const EtiquetteCards: React.FC<EtiquetteCardsProps> = ({
+  isVisible = true,
   dressCode = 'رسمي وأنيق يليق بفخامة الحفل',
   childrenPolicy = 'نعتذر عن استقبال الأطفال لراحتكم وسهرتكم',
   parkingPolicy = 'تتوفر أماكن مخصصة وخدمة صف سيارات أمام القاعة',
 }) => {
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <div
       id="wedding-etiquette-section"

@@ -14,5 +14,8 @@
       "database_name": "mo-do-wedding-db",
       "database_id": "f68e6ff6-8a49-4968-b837-2bc6de85f08a"
     }
+  ],
+  "r2_buckets": [
+    { "binding": "VOICE_MESSAGES", "bucket_name": "mo-do-wedding-voice-messages" }
   ]
 }

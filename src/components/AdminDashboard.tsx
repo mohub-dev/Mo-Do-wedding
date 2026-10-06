@@ -20,6 +20,7 @@ import {
   Edit3,
   Link,
   BookOpen,
+  Mic,
   Image as ImageIcon,
 } from 'lucide-react';
 import { InvitationData, RSVPRecord } from '../types';
@@ -28,6 +29,7 @@ import { LiveEventEditor } from './LiveEventEditor';
 import { formatWhatsAppInvitation, openWhatsAppShare } from '../utils/whatsappShare';
 import { ShareOptionsModal } from './ShareOptionsModal';
 import { GuestLinkGeneratorModal } from './GuestLinkGeneratorModal';
+import { VoiceMessagesAdmin } from './VoiceMessagesAdmin';
 import { buildInvitationUrl } from '../utils/invitationUrl';
 
 interface AdminDashboardProps {
@@ -67,7 +69,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
   };
 
   // Active Main Admin Section Tab
-  const [activeTab, setActiveTab] = useState<'editor' | 'rsvps' | 'links' | 'guestbook'>('editor');
+  const [activeTab, setActiveTab] = useState<'editor' | 'rsvps' | 'links' | 'guestbook' | 'voice'>('editor');
 
   // Guest Link Generator State
   const [targetGuestName, setTargetGuestName] = useState<string>('');
@@ -380,6 +382,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
           >
             <BookOpen className={`w-4 h-4 ${activeTab === 'guestbook' ? 'text-[#DEC496]' : 'text-[#832E41]'}`} />
             <span>سجل التهاني والمباركات ({guestbookMessages.length})</span>
+          </button>
+          <button onClick={() => setActiveTab('voice')} className={`inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${activeTab === 'voice' ? 'bg-[#832E41] text-white shadow-md' : 'bg-white text-[#5E2330] hover:bg-[#FAF4F6] border border-[#E6DCCE]'}`}>
+            <Mic className={`w-4 h-4 ${activeTab === 'voice' ? 'text-[#DEC496]' : 'text-[#832E41]'}`} /><span>الرسائل الصوتية</span>
           </button>
         </div>
 
@@ -838,6 +843,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ data, onExitAdmi
             )}
           </section>
         )}
+        {activeTab === 'voice' && <VoiceMessagesAdmin />}
       </div>
 
       {/* Manual Add RSVP Modal */}

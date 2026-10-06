@@ -7,6 +7,7 @@
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
+  VOICE_MESSAGES: R2Bucket;
   ADMIN_PASSWORD?: string;
   SESSION_SECRET?: string;
 }
@@ -23,6 +24,8 @@ export interface Env {
  */
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 const requestThrottles = new Map<string, { count: number; resetAt: number }>();
+const MAX_VOICE_MESSAGE_BYTES = 5 * 1024 * 1024;
+const MAX_VOICE_MESSAGE_SECONDS = 60;
 
 function checkRateLimit(ip: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
@@ -422,6 +425,56 @@ export default {
           const id = url.pathname.replace('/api/rsvps/', '');
           await env.DB.prepare('DELETE FROM rsvps WHERE id = ?').bind(id).run();
           return jsonResponse({ success: true, message: 'ØªÙ… Ø§Ù„Ø­Ø°Ù Ø¨Ù†Ø¬Ø§Ø­' });
+        }
+
+        if (url.pathname === '/api/voice-messages' && method === 'POST') {
+          if (!checkRateLimit(clientIp, 5, 60 * 1000)) return jsonResponse({ error: 'Too many requests' }, 429);
+          const form = await request.formData();
+          const guestName = String(form.get('guestName') || '').trim();
+          const durationSeconds = Number(form.get('durationSeconds'));
+          const audio = form.get('audio');
+          if (!guestName || guestName.length > 100) return jsonResponse({ error: 'الاسم مطلوب ولا يتجاوز 100 حرف' }, 400);
+          if (!(audio instanceof File) || !audio.type.startsWith('audio/webm')) return jsonResponse({ error: 'صيغة التسجيل غير مدعومة' }, 400);
+          if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > MAX_VOICE_MESSAGE_SECONDS) return jsonResponse({ error: 'مدة التسجيل غير صالحة' }, 400);
+          if (audio.size > MAX_VOICE_MESSAGE_BYTES) return jsonResponse({ error: 'حجم التسجيل أكبر من المسموح' }, 413);
+          const id = crypto.randomUUID();
+          const objectKey = `voice-messages/${id}.webm`;
+          await env.VOICE_MESSAGES.put(objectKey, audio.stream(), { httpMetadata: { contentType: 'audio/webm' } });
+          try {
+            const createdAt = new Date().toISOString();
+            await env.DB.prepare('INSERT INTO voice_messages (id, guest_name, object_key, content_type, size_bytes, duration_seconds, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+              .bind(id, guestName, objectKey, 'audio/webm', audio.size, Math.ceil(durationSeconds), createdAt).run();
+            return jsonResponse({ success: true, message: { id, guestName, durationSeconds: Math.ceil(durationSeconds), createdAt } }, 201);
+          } catch (error) {
+            await env.VOICE_MESSAGES.delete(objectKey);
+            throw error;
+          }
+        }
+
+        if (url.pathname === '/api/voice-messages' && method === 'GET') {
+          if (!(await isAuthenticated(request, env))) return jsonResponse({ error: 'Unauthorized' }, 401);
+          const { results } = await env.DB.prepare('SELECT id, guest_name as guestName, content_type as contentType, size_bytes as sizeBytes, duration_seconds as durationSeconds, created_at as createdAt FROM voice_messages ORDER BY created_timestamp DESC').all();
+          return jsonResponse({ success: true, messages: results || [] });
+        }
+
+        if (url.pathname.startsWith('/api/voice-messages/') && url.pathname.endsWith('/audio') && method === 'GET') {
+          if (!(await isAuthenticated(request, env))) return jsonResponse({ error: 'Unauthorized' }, 401);
+          const id = url.pathname.replace('/api/voice-messages/', '').replace('/audio', '');
+          const row = await env.DB.prepare('SELECT object_key as objectKey, content_type as contentType FROM voice_messages WHERE id = ?').bind(id).first<{ objectKey: string; contentType: string }>();
+          if (!row) return jsonResponse({ error: 'Not found' }, 404);
+          const object = await env.VOICE_MESSAGES.get(row.objectKey);
+          if (!object) return jsonResponse({ error: 'Not found' }, 404);
+          return new Response(object.body, { headers: { 'Content-Type': row.contentType, 'Cache-Control': 'private, no-store' } });
+        }
+
+        if (url.pathname.startsWith('/api/voice-messages/') && method === 'DELETE') {
+          if (!(await isAuthenticated(request, env))) return jsonResponse({ error: 'Unauthorized' }, 401);
+          const id = url.pathname.replace('/api/voice-messages/', '');
+          const row = await env.DB.prepare('SELECT object_key as objectKey FROM voice_messages WHERE id = ?').bind(id).first<{ objectKey: string }>();
+          if (!row) return jsonResponse({ error: 'Not found' }, 404);
+          await env.VOICE_MESSAGES.delete(row.objectKey);
+          await env.DB.prepare('DELETE FROM voice_messages WHERE id = ?').bind(id).run();
+          return jsonResponse({ success: true });
         }
 
         /* -------------------------------------------------------------

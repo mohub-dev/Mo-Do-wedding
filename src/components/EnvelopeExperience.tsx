@@ -138,6 +138,23 @@ export const EnvelopeExperience: React.FC<EnvelopeExperienceProps> = ({
               </div>
             </motion.div>
 
+            {/* The transparent childhood portrait rises from inside the envelope pocket. */}
+            <div className="absolute inset-x-0 -bottom-[8%] z-[15] flex justify-center items-end pointer-events-none">
+              <motion.img
+                id="emerging-couple-photo"
+                src="/assets/couple-childhood-hug.png"
+                alt="صورة طفولة العروسين تخرج من ظرف الدعوة"
+                initial={false}
+                animate={
+                  animationStep === 'opening'
+                    ? { y: '-62%', opacity: 1, scale: 1 }
+                    : { y: '24%', opacity: 0, scale: 0.76 }
+                }
+                transition={{ duration: 0.58, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="w-32 xs:w-40 sm:w-48 md:w-52 h-auto object-contain drop-shadow-[0_14px_22px_rgba(45,11,20,0.28)]"
+              />
+            </div>
+
             {/* 3. Envelope Front Flaps Construction */}
             
             {/* 3A. Left Side Flap (Solid Opaque Burgundy) */}

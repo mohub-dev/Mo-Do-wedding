@@ -480,6 +480,23 @@ export const LiveEventEditor: React.FC<LiveEventEditorProps> = ({ onPreviewInvit
               </h3>
             </div>
 
+            <label className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-[#FAF5EB] border border-[#E9DCBF] cursor-pointer">
+              <span className="space-y-0.5">
+                <span className="block text-sm font-bold text-[#634E26]">
+                  إظهار قسم الإرشادات والتفاصيل للضيوف
+                </span>
+                <span className="block text-xs text-[#8A713F]">
+                  عند إيقافه، يختفي هذا القسم بالكامل من صفحة الدعوة العامة.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={formData.showEtiquette}
+                onChange={(e) => handleChange('showEtiquette', e.target.checked)}
+                className="w-5 h-5 accent-[#832E41] shrink-0"
+              />
+            </label>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs sm:text-sm font-bold text-[#2B1117]">

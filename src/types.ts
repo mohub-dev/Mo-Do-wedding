@@ -23,6 +23,7 @@ export interface InvitationData {
   dressCode: string;
   childrenPolicy: string;
   parkingPolicy: string;
+  showEtiquette: boolean;
   finalPhrase: string;
   quranVerseText: string;
   honorStatement: string;
@@ -80,6 +81,7 @@ export const INVITATION_DATA: InvitationData = {
   dressCode: "رسمي وأنيق يليق بفخامة الحفل",
   childrenPolicy: "نعتذر عن استقبال الأطفال لراحتكم وسهرتكم",
   parkingPolicy: "تتوفر أماكن مخصصة وخدمة صف سيارات أمام القاعة",
+  showEtiquette: true,
   finalPhrase: "وَجَعَلَ بَيْنَكُم مَّوَدَّةً وَرَحْمَةً",
   quranVerseText: "وَمِنْ آيَاتِهِ أَنْ خَلَقَ لَكُم مِّنْ أَنفُسِكُمْ أَزْوَاجًا لِّتَسْكُنُوا إِلَيْهَا وَجَعَلَ بَيْنَكُم مَّوَدَّةً وَرَحْمَةً",
   honorStatement: "يتشرف أهل العروسين بدعوتكم لمشاركتهم فرحة",
@@ -106,6 +108,15 @@ export interface GuestbookMessage {
   content: string;
   createdAt: string;
   likes: number;
+}
+
+export interface VoiceMessageRecord {
+  id: string;
+  guestName: string;
+  contentType: string;
+  sizeBytes: number;
+  durationSeconds: number;
+  createdAt: string;
 }
 
 export interface BatchGuest {
